@@ -3,6 +3,7 @@ import time
 import random
 from pygame.constants import (QUIT, KEYDOWN, KEYUP, K_LEFT, K_RIGHT, K_p)
 import pygame
+import shelve
 
 
 pygame.init()
@@ -30,6 +31,7 @@ gameIcon = pygame.image.load('racecar.png')
 pygame.display.set_icon(gameIcon)
 
 pause = False
+dodged = 0
 #crash = True
 
 crash_sound = pygame.mixer.Sound("crash.wav")
@@ -56,6 +58,7 @@ def button(msg, x, y, w, h, ic, ac, action = None):
 
 
 def quit_game():
+    update_high_score()
     pygame.quit()
     sys.exit()
 
@@ -66,10 +69,14 @@ def unpause():
     pause = False
 
 
-def things_dodged(count):
+def score_disp(count, current):
     font = pygame.font.SysFont(None, 25)
-    text = font.render("Dodged: " + str(count), True, black)
-    gameDisplay.blit(text, (0,0))
+    if current:
+        text = font.render("Current score: " + str(count), True, black)
+        gameDisplay.blit(text, (5,0))
+    else:
+        text = font.render("High score: "+ str(count), True, black)
+        gameDisplay.blit(text, (display_width - 125, 0))
 
 
 def things(thingx, thingy, thingw, thingh, color):
@@ -117,7 +124,23 @@ def message_display(text):
     time.sleep(2)
 
 
+def get_high_score():
+    d = shelve.open("score.txt")
+    high_score = d["high_score"]
+    d.close()
+    return high_score
+
+
+def update_high_score():
+    global dodged
+    high_score = get_high_score()
+    d = shelve.open("score.txt")
+    d['high_score'] = max(dodged, high_score)
+    d.close()
+
+
 def crash():
+    update_high_score()
     message_display('You Crashed!!!')
 
     pygame.mixer.Sound.play(crash_sound)
@@ -139,12 +162,17 @@ def game_intro():
 
     intro = True
 
+    high_score = get_high_score()
+
     while intro:
         for event in pygame.event.get():
             if event.type == QUIT:
                 quit_game()
+        
+        
 
         gameDisplay.fill(white)
+        score_disp(high_score, False)
         large_text = pygame.font.Font('freesansbold.ttf',115)
         text_surf, text_rect = text_objects("A bit Racey", large_text)
         text_rect.center = ((display_width/2),(display_height/2))
@@ -160,6 +188,9 @@ def game_intro():
 def game_loop():
 
     global pause
+    global dodged
+
+    high_score = get_high_score()
 
     pygame.mixer.music.load("jazz.wav")
     pygame.mixer.music.play(-1)
@@ -205,7 +236,10 @@ def game_loop():
         things(thing_startx, thing_starty, thing_width, thing_height, black)
         thing_starty += thing_speed
         car(x, y)
-        things_dodged(dodged)
+        score_disp(dodged, True)
+        if dodged > high_score:
+            high_score = dodged
+        score_disp(high_score, False)
 
         if x > display_width - car_width or x < 0:
             crash()
@@ -228,7 +262,11 @@ def game_loop():
         pygame.display.update()
         clock.tick(60)
 
+# Initial run to set score variable in disk
+# d = shelve.open("score.txt")
+# d["high_score"] = 0
+# d.close()
+
 game_intro()
 game_loop()
 quit_game()
-#quit()
